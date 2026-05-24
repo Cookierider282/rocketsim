@@ -22,6 +22,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .mode-btn.active{color:#050a0f;font-weight:bold;}
 .mode-btn.active.model{background:var(--accent);}
 .mode-btn.active.anti{background:var(--accent2);}
+.mode-btn.active.nuclear{background:var(--green);}
 .mode-btn:hover:not(.active){color:var(--text);background:rgba(128,128,128,0.1);}
 .icon-btn{padding:6px 11px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.2s;}
 .icon-btn:hover{color:var(--text);border-color:var(--accent);}
@@ -32,6 +33,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .panel-section{border:1px solid var(--border);border-radius:4px;overflow:hidden;}
 .panel-title{background:rgba(0,200,255,0.06);border-bottom:1px solid var(--border);padding:7px 11px;font-size:10px;letter-spacing:0.18em;color:var(--accent);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none;}
 .panel-title.anti{color:var(--accent2);background:rgba(255,106,0,0.06);}
+.panel-title.nuclear{color:var(--green);background:rgba(0,255,157,0.06);}
 .chevron{transition:transform 0.2s;font-size:9px;}
 .section-collapsed .chevron{transform:rotate(-90deg);}
 .section-body{overflow:hidden;transition:max-height 0.25s ease;}
@@ -49,6 +51,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .slider-wrap{display:flex;align-items:center;gap:8px;}
 .slider-wrap input[type=range]{flex:1;accent-color:var(--accent2);}
 .slider-val{font-size:11px;color:var(--accent2);min-width:52px;text-align:right;}
+.nuclear-sec .slider-wrap input[type=range]{accent-color:var(--green);}
+.nuclear-sec .slider-val,.nuclear-sec .live-val{color:var(--green);}
+.conditional-block{overflow:hidden;max-height:0;opacity:0;transform:translateY(-4px);transition:max-height 0.35s ease,opacity 0.25s ease,transform 0.25s ease;border-top:1px solid var(--border);margin-top:8px;}
+.conditional-block.active{max-height:620px;opacity:1;transform:translateY(0);padding-top:10px;}
 .preset-row{padding:8px 10px;display:flex;flex-wrap:wrap;gap:5px;}
 .chip{padding:3px 8px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;transition:all 0.2s;}
 .chip:hover{border-color:var(--accent);color:var(--accent);}
@@ -56,6 +62,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .launch-btn{width:100%;padding:11px;background:var(--accent);border:none;border-radius:4px;color:#050a0f;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.14em;cursor:pointer;transition:all 0.2s;text-transform:uppercase;}
 .launch-btn:hover{filter:brightness(1.1);transform:translateY(-1px);}
 .launch-btn.anti{background:var(--accent2);}
+.launch-btn.nuclear{background:var(--green);}
 .action-btn{width:100%;padding:7px;background:transparent;border:1px solid var(--border);border-radius:4px;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;}
 .cmp-btn{color:var(--accent);border-color:var(--accent);}
 .cmp-btn:hover{background:rgba(0,200,255,0.07);}
@@ -92,7 +99,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .chart-title{font-size:10px;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
 .chart-wrap{position:relative;height:190px;}
 .chart-wrap.lg{height:230px;}
-.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:6px;font-size:11px;}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:42px;color:var(--muted);gap:6px;font-size:11px;pointer-events:none;}
 .float-r{font-size:28px;animation:float 3s ease-in-out infinite;}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @media(max-width:680px){.sidebar{position:fixed;top:0;left:0;bottom:0;z-index:50;}.sidebar.collapsed{transform:translateX(-100%);width:var(--panel-w);}.track-panel{display:none;}.logo{font-size:14px;}}
@@ -106,10 +113,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
     <div class="mode-toggle">
       <button class="mode-btn model active" onclick="setMode('model')">MODEL ROCKET</button>
       <button class="mode-btn anti" onclick="setMode('anti')">ANTIMATTER</button>
+      <button class="mode-btn nuclear" onclick="setMode('nuclear')">NUCLEAR</button>
     </div>
     <button class="icon-btn" id="panelBtn" onclick="togglePanel()">◀ PANEL</button>
     <button class="icon-btn" id="themeBtn" onclick="toggleTheme()">☀ LIGHT</button>
-    <span style="font-size:10px;color:var(--muted)">v2.0 — Neil R. Nagalkar</span>
+    <span style="font-size:10px;color:var(--muted)">v3.0 — Neil R. Nagalkar</span>
   </div>
 </header>
 
@@ -286,6 +294,66 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
     </div>
   </div>
 
+  <!-- NUCLEAR PROPULSION SECTION -->
+  <div class="panel-section nuclear-sec" id="ps_nuclear" style="display:none">
+    <div class="panel-title nuclear" onclick="toggleSec('ps_nuclear')">Nuclear Propulsion <span class="chevron">▾</span></div>
+    <div class="section-body" id="pb_nuclear">
+      <div class="input-grid">
+        <div class="input-row"><label>Propulsion Mode <span class="tip" data-t="NTP uses reactor heat for high-thrust hydrogen exhaust. NEP uses reactor electricity for low-thrust electric propulsion.">?</span></label>
+          <select id="n_mode" oninput="setNuclearMode(this.value)">
+            <option value="ntp">Nuclear Thermal Propulsion (NTP)</option>
+            <option value="nep">Nuclear Electric Propulsion (NEP)</option>
+          </select>
+        </div>
+        <div class="input-row"><label>Dry Mass <span class="tip" data-t="Spacecraft mass without propellant. Includes reactor, shielding, structure, and payload.">?</span></label><input type="number" id="n_dry" value="18000" min="1" step="10" oninput="updateLive()"><div class="input-unit">kg</div></div>
+        <div class="input-row"><label>Propellant Mass <span class="tip" data-t="Hydrogen for NTP, xenon/argon or similar electric-propulsion propellant for NEP.">?</span></label><input type="number" id="n_prop" value="12000" min="0.001" step="10" oninput="updateLive()"><div class="input-unit">kg</div></div>
+        <div class="input-row"><label>Target Velocity <span class="tip" data-t="Mission delta-v target used for transfer and energy estimates.">?</span></label><input type="number" id="n_target_vel" value="9500" min="100" step="100" oninput="updateLive()"><div class="input-unit">m/s</div></div>
+        <div class="input-row"><label>Mission Distance <span class="tip" data-t="Representative transfer distance for travel-time estimates. Earth-Mars close approach is roughly 55 million km.">?</span></label><input type="number" id="n_distance" value="55000000" min="1" step="100000" oninput="updateLive()"><div class="input-unit">km</div></div>
+        <div class="input-row"><label>Payload Fraction <span class="tip" data-t="Percentage of dry mass allocated to payload.">?</span></label>
+          <div class="slider-wrap"><input type="range" id="n_payload" min="0.1" max="0.8" step="0.05" value="0.35" oninput="updateLiveNuclear()"><span class="slider-val" id="n_pay_val">35%</span></div>
+        </div>
+      </div>
+      <div class="live-block">
+        <div class="live-row"><span>Delta-V</span><span class="live-val" id="n_l_dv">—</span></div>
+        <div class="live-row"><span>Exhaust Velocity</span><span class="live-val" id="n_l_ve">—</span></div>
+        <div class="live-row"><span>Thrust-to-Weight</span><span class="live-val" id="n_l_twr">—</span></div>
+        <div class="live-row"><span>Propellant Flow</span><span class="live-val" id="n_l_flow">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NUCLEAR ENGINE CONFIG -->
+  <div class="panel-section nuclear-sec" id="ps_nuclear_eng" style="display:none">
+    <div class="panel-title nuclear" onclick="toggleSec('ps_nuclear_eng')">Engine Configuration <span class="chevron">▾</span></div>
+    <div class="section-body" id="pb_nuclear_eng">
+      <div class="input-grid">
+        <div class="conditional-block active" id="ntp_controls">
+          <div class="input-row"><label>NTP Specific Impulse <span class="tip" data-t="Nuclear thermal hydrogen exhaust is commonly estimated near 850-950 seconds.">?</span></label><input type="number" id="n_ntp_isp" value="900" min="300" step="10" oninput="updateLive()"><div class="input-unit">seconds</div></div>
+          <div class="input-row"><label>NTP Thrust <span class="tip" data-t="High-thrust thermal rocket force, suitable for impulsive burns.">?</span></label><input type="number" id="n_ntp_thrust" value="250000" min="1" step="1000" oninput="updateLive()"><div class="input-unit">Newtons</div></div>
+          <div class="input-row"><label>Reactor Thermal Power <span class="tip" data-t="Thermal power deposited into hydrogen before nozzle expansion.">?</span></label><input type="number" id="n_thermal_power" value="1200" min="1" step="10" oninput="updateLive()"><div class="input-unit">MWth</div></div>
+          <div class="input-row"><label>Hydrogen Temperature <span class="tip" data-t="Approximate reactor outlet temperature for hydrogen exhaust.">?</span></label><input type="number" id="n_h2_temp" value="2800" min="500" step="50" oninput="updateLive()"><div class="input-unit">K</div></div>
+          <div class="input-row"><label>Nozzle Efficiency <span class="tip" data-t="Fraction of thermal energy converted into directed exhaust kinetic energy.">?</span></label>
+            <div class="slider-wrap"><input type="range" id="n_nozzle" min="0.65" max="0.96" step="0.01" value="0.88" oninput="updateLiveNuclear()"><span class="slider-val" id="n_noz_val">88%</span></div>
+          </div>
+        </div>
+        <div class="conditional-block" id="nep_controls">
+          <div class="input-row"><label>NEP Specific Impulse <span class="tip" data-t="Electric propulsion can trade very high exhaust velocity for low thrust.">?</span></label><input type="number" id="n_nep_isp" value="5000" min="800" step="100" oninput="updateLive()"><div class="input-unit">seconds</div></div>
+          <div class="input-row"><label>Electrical Reactor Power <span class="tip" data-t="Electrical power delivered to ion, Hall, or magnetoplasma thrusters.">?</span></label><input type="number" id="n_electric_power" value="8" min="0.01" step="0.1" oninput="updateLive()"><div class="input-unit">MWe</div></div>
+          <div class="input-row"><label>Thruster Efficiency <span class="tip" data-t="Fraction of electric power converted into exhaust kinetic power.">?</span></label>
+            <div class="slider-wrap"><input type="range" id="n_thruster_eff" min="0.35" max="0.82" step="0.01" value="0.65" oninput="updateLiveNuclear()"><span class="slider-val" id="n_eff_val">65%</span></div>
+          </div>
+          <div class="input-row"><label>Radiator Area <span class="tip" data-t="Radiator surface used to reject reactor and conversion waste heat.">?</span></label><input type="number" id="n_radiator" value="1400" min="1" step="10" oninput="updateLive()"><div class="input-unit">m²</div></div>
+          <div class="input-row"><label>Thrust Duration <span class="tip" data-t="Continuous electric-propulsion firing duration.">?</span></label><input type="number" id="n_nep_days" value="180" min="1" step="1" oninput="updateLive()"><div class="input-unit">days</div></div>
+        </div>
+      </div>
+      <div class="live-block">
+        <div class="live-row"><span>Power Output</span><span class="live-val" id="n_l_power">—</span></div>
+        <div class="live-row"><span>Transfer Estimate</span><span class="live-val" id="n_l_transfer">—</span></div>
+        <div class="live-row"><span>Payload Kinetic Energy</span><span class="live-val" id="n_l_ke">—</span></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ACTIONS -->
   <button class="launch-btn model" id="launchBtn" onclick="runSim()">▶ LAUNCH</button>
   <button class="action-btn cmp-btn" id="cmpBtn" onclick="saveCompare()" disabled>⊕ SAVE FOR COMPARE</button>
@@ -346,6 +414,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
       <div class="chart-title">▸ G-Force vs Time</div>
       <div class="chart-wrap" id="gw"><canvas id="gChart"></canvas><div class="empty" id="eG"><div style="font-size:11px;color:var(--muted)">G-force data will appear here</div></div></div>
     </div>
+    <div class="chart-box">
+      <div class="chart-title">▸ Propulsion Systems Comparison</div>
+      <div class="chart-wrap" id="pw"><canvas id="propChart"></canvas><div class="empty" id="eProp"><div style="font-size:11px;color:var(--muted)">Chemical, nuclear, and antimatter comparison will appear here</div></div></div>
+    </div>
   </div>
 </div>
 </div><!-- end app -->
@@ -404,7 +476,7 @@ const ANTI=[
   {name:'Hybrid ACMF',isp:13500, thrust:4000000,cd:0.30,d:10},
 ];
 
-let mode='model',altC=null,velC=null,gC=null,lastR=null,cmpR=null,animIntvl=null,panelOpen=true;
+let mode='model',altC=null,velC=null,gC=null,propC=null,lastR=null,cmpR=null,animIntvl=null,panelOpen=true;
 
 (function init(){
   MOTORS.forEach(m=>{
@@ -430,6 +502,7 @@ let mode='model',altC=null,velC=null,gC=null,lastR=null,cmpR=null,animIntvl=null
     document.getElementById('antiRow').appendChild(b);
   });
   updateLive();
+  updateLiveNuclear();
 })();
 
 function setMode(m){
@@ -438,14 +511,18 @@ function setMode(m){
   document.querySelector('.mode-btn.'+m).classList.add('active');
   document.getElementById('launchBtn').className='launch-btn '+m;
   const isAnti=m==='anti';
+  const isNuclear=m==='nuclear';
   document.querySelectorAll('.anti-sec').forEach(el=>el.style.display=isAnti?'':'none');
-  document.getElementById('ps_motors').style.display=isAnti?'none':'';
-  document.getElementById('ps_model').style.display=isAnti?'none':'';
-  document.getElementById('ps_stages').style.display=isAnti?'none':'';
-  document.getElementById('ps_env').style.display=isAnti?'none':'';
-  document.getElementById('ps_perf').style.display=isAnti?'none':'';
+  document.querySelectorAll('.nuclear-sec').forEach(el=>el.style.display=isNuclear?'':'none');
+  document.getElementById('ps_motors').style.display=(isAnti||isNuclear)?'none':'';
+  document.getElementById('ps_model').style.display=(isAnti||isNuclear)?'none':'';
+  document.getElementById('ps_stages').style.display=(isAnti||isNuclear)?'none':'';
+  document.getElementById('ps_env').style.display=(isAnti||isNuclear)?'none':'';
+  document.getElementById('ps_perf').style.display=(isAnti||isNuclear)?'none':'';
+  document.querySelectorAll('.section-body').forEach(b=>{if(b.parentElement.style.display!=='none')b.style.maxHeight=b.scrollHeight+'px';});
   resetSim();
   if(isAnti)updateLive();
+  if(isNuclear){setNuclearMode(document.getElementById('n_mode').value);updateLiveNuclear();}
 }
 
 function toggleTheme(){
@@ -489,6 +566,8 @@ function updateLive(){
   document.getElementById('l_ve').textContent=fmt(ve)+' m/s';
   document.getElementById('l_c').textContent=(ve/C*100).toFixed(4)+'%';
   document.getElementById('l_mr').textContent=mr.toFixed(2)+'×';
+  updateLiveAntimatter();
+  updateLiveNuclear();
 }
 
 function onSlide(v){
@@ -533,6 +612,74 @@ function updateLiveAntimatter(){
   document.getElementById('l_power').textContent=fmt(power/1e9)+'GW';
 }
 
+function setNuclearMode(v){
+  document.getElementById('ntp_controls').classList.toggle('active',v==='ntp');
+  document.getElementById('nep_controls').classList.toggle('active',v==='nep');
+  updateLiveNuclear();
+  requestAnimationFrame(()=>document.querySelectorAll('.section-body').forEach(b=>{
+    if(b.parentElement.style.display!=='none'&&b.style.maxHeight!=='0px')b.style.maxHeight=b.scrollHeight+'px';
+  }));
+}
+
+function getNuclearProfile(){
+  const nMode=document.getElementById('n_mode').value;
+  const mDry=parseFloat(document.getElementById('n_dry').value)||18000;
+  const mProp=parseFloat(document.getElementById('n_prop').value)||12000;
+  const targetVel=parseFloat(document.getElementById('n_target_vel').value)||9500;
+  const distanceKm=parseFloat(document.getElementById('n_distance').value)||55000000;
+  const payloadFrac=parseFloat(document.getElementById('n_payload').value)||0.35;
+  let isp,thrust,powerW,burnTime,flow,systemNote;
+  if(nMode==='ntp'){
+    isp=parseFloat(document.getElementById('n_ntp_isp').value)||900;
+    thrust=parseFloat(document.getElementById('n_ntp_thrust').value)||250000;
+    powerW=(parseFloat(document.getElementById('n_thermal_power').value)||1200)*1e6;
+    flow=thrust/(isp*G0);
+    burnTime=mProp/flow;
+    systemNote='NTP hydrogen thermal exhaust';
+  }else{
+    isp=parseFloat(document.getElementById('n_nep_isp').value)||5000;
+    const electricPower=(parseFloat(document.getElementById('n_electric_power').value)||8)*1e6;
+    const eff=parseFloat(document.getElementById('n_thruster_eff').value)||0.65;
+    const ve=isp*G0;
+    thrust=(2*eff*electricPower)/ve;
+    powerW=electricPower;
+    burnTime=(parseFloat(document.getElementById('n_nep_days').value)||180)*86400;
+    flow=thrust/ve;
+    systemNote='NEP ion/electric continuous thrust';
+  }
+  const ve=isp*G0;
+  const m0=mDry+mProp;
+  const mf=mDry;
+  const usableProp=Math.min(mProp,flow*burnTime);
+  const finalMass=Math.max(mDry,m0-usableProp);
+  const dv=ve*Math.log(m0/finalMass);
+  const twr=thrust/(m0*G0);
+  const accel0=thrust/m0;
+  const distanceM=distanceKm*1000;
+  const coastDays=distanceM/Math.max(targetVel,1)/86400;
+  const accelDays=Math.sqrt(2*distanceM/Math.max(accel0,0.000001))/86400;
+  const transferDays=nMode==='nep'?Math.min(accelDays,coastDays*1.25):coastDays;
+  const payloadMass=mDry*payloadFrac;
+  const payloadKE=0.5*payloadMass*targetVel*targetVel;
+  return{nMode,mDry,mProp,targetVel,distanceKm,payloadFrac,isp,thrust,powerW,burnTime,flow,ve,dv,twr,accel0,transferDays,payloadKE,systemNote};
+}
+
+function updateLiveNuclear(){
+  if(!document.getElementById('n_mode'))return;
+  const p=getNuclearProfile();
+  const payload=parseFloat(document.getElementById('n_payload').value)||0.35;
+  document.getElementById('n_pay_val').textContent=(payload*100).toFixed(0)+'%';
+  document.getElementById('n_noz_val').textContent=((parseFloat(document.getElementById('n_nozzle').value)||0.88)*100).toFixed(0)+'%';
+  document.getElementById('n_eff_val').textContent=((parseFloat(document.getElementById('n_thruster_eff').value)||0.65)*100).toFixed(0)+'%';
+  document.getElementById('n_l_dv').textContent=fmt(p.dv)+' m/s';
+  document.getElementById('n_l_ve').textContent=fmt(p.ve)+' m/s';
+  document.getElementById('n_l_twr').textContent=p.twr.toFixed(p.twr<0.01?4:2);
+  document.getElementById('n_l_flow').textContent=p.flow.toFixed(p.flow<0.01?4:2)+' kg/s';
+  document.getElementById('n_l_power').textContent=p.nMode==='ntp'?fmt(p.powerW/1e6)+' MWth':fmt(p.powerW/1e6)+' MWe';
+  document.getElementById('n_l_transfer').textContent=p.transferDays<1?(p.transferDays*24).toFixed(1)+' hr':p.transferDays.toFixed(1)+' days';
+  document.getElementById('n_l_ke').textContent=fmt(p.payloadKE/1e9)+' GJ';
+}
+
 // Altitude-dependent air density using exponential atmosphere model
 function airDensity(alt) {
   const altMeters = Math.max(0, alt);
@@ -565,7 +712,7 @@ function simulate(p){
   let stageBurnStartTime=0;
   let propLeft=currentStage.propMass;
   let mass=currentStage.totalMass;
-  const mDot=currentStage.propMass/currentStage.burnTime;
+  let mDot=currentStage.propMass/currentStage.burnTime;
   
   // Calculate total initial mass
   for(let i=0;i<stages.length;i++){
@@ -734,6 +881,8 @@ function runSim(){
     const chuteD=parseFloat(document.getElementById('chute_d').value)||0.5;
     const chuteArea=Math.PI*(chuteD/2)*(chuteD/2);
     params={stages,wind,angleDeg,chuteCD,chuteArea,stageSeparationMasses};
+  } else if(mode==='nuclear'){
+    params=getNuclearProfile();
   } else {
     const mDry=parseFloat(document.getElementById('a_dry').value);
     const mProp=parseFloat(document.getElementById('a_prop').value);
@@ -748,13 +897,48 @@ function runSim(){
   }
   setStatus('SIMULATING...','active');
   setTimeout(()=>{
-    const r=simulate(params);
+    const r=mode==='nuclear'?simulateNuclearMission(params):simulate(params);
     lastR=r;
     renderResults(r);
     setStatus('COMPLETE','done');
     document.getElementById('cmpBtn').disabled=false;
     document.getElementById('csvBtn').disabled=false;
   },60);
+}
+
+function simulateNuclearMission(p){
+  const samples=260;
+  const burnTime=Math.max(1,p.burnTime);
+  const times=[],alts=[],vels=[],accels=[],gfs=[],drifts=[];
+  let maxVel=0,maxAccel=0,maxG=0,distance=0,vel=0,propUsed=0;
+  const flow=p.flow;
+  for(let i=0;i<=samples;i++){
+    const t=burnTime*i/samples;
+    const used=Math.min(p.mProp,flow*t);
+    const mass=Math.max(p.mDry,p.mDry+p.mProp-used);
+    const accel=p.thrust/mass;
+    const cappedVel=Math.min(p.dv,accel*t);
+    const dt=i===0?0:burnTime/samples;
+    vel=cappedVel;
+    distance+=vel*dt;
+    propUsed=used;
+    maxVel=Math.max(maxVel,vel);
+    maxAccel=Math.max(maxAccel,accel);
+    maxG=Math.max(maxG,accel/G0);
+    const dayScale=t>86400?+(t/86400).toFixed(2):+t.toFixed(2);
+    times.push(dayScale);
+    alts.push(+(distance/1000).toFixed(2));
+    vels.push(+vel.toFixed(2));
+    accels.push(+accel.toFixed(5));
+    gfs.push(+(accel/G0).toFixed(5));
+    drifts.push(+((p.distanceKm*1000-distance)/1000).toFixed(2));
+  }
+  const burnLabel=p.burnTime>86400?p.burnTime/86400:p.burnTime;
+  return{times,alts,vels,accels,gfs,drifts,
+    apogee:+(distance/1000).toFixed(1),maxVel:+maxVel.toFixed(1),maxAccel:+maxAccel.toFixed(4),
+    maxG:+maxG.toFixed(4),flightTime:+burnLabel.toFixed(1),deltaV:+p.dv.toFixed(1),
+    maxMach:+(maxVel/VSOUND).toFixed(3),landOffset:+propUsed.toFixed(1),
+    btTime:p.burnTime,apTime:null,meta:p};
 }
 
 function cOpts(xl,yl){
@@ -783,8 +967,9 @@ function addEventDot(chart,times,evtTime,dotColor){
 }
 
 function renderResults(r){
-  const color=mode==='model'?'#00c8ff':'#ff6a00';
-  const fade=mode==='model'?'rgba(0,200,255,0.08)':'rgba(255,106,0,0.08)';
+  const color=mode==='model'?'#00c8ff':mode==='nuclear'?'#00ff9d':'#ff6a00';
+  const fade=mode==='model'?'rgba(0,200,255,0.08)':mode==='nuclear'?'rgba(0,255,157,0.08)':'rgba(255,106,0,0.08)';
+  updateStatLabels();
 
   document.getElementById('s_apogee').textContent=fmt(r.apogee);
   document.getElementById('s_maxv').textContent=fmt(r.maxVel);
@@ -796,23 +981,88 @@ function renderResults(r){
   document.getElementById('s_land').textContent=fmt(r.landOffset);
   document.querySelectorAll('.stat-value').forEach(el=>el.style.color=color);
 
-  ['eAlt','eVel','eG'].forEach(id=>document.getElementById(id).style.display='none');
+  ['eAlt','eVel','eG','eProp'].forEach(id=>document.getElementById(id).style.display='none');
+  const timeLabel=mode==='nuclear'&&r.meta&&r.meta.burnTime>86400?'Time (days)':'Time (s)';
+  const distanceLabel=mode==='nuclear'?'Distance (km)':'Altitude (m)';
 
   if(altC)altC.destroy();
   const altDS=[{label:'Alt',data:r.alts,borderColor:color,backgroundColor:fade,borderWidth:2,pointRadius:0,fill:true,tension:0.3}];
   if(cmpR) altDS.push({label:'Run 2',data:cmpR.alts,borderColor:'#ff6a00',backgroundColor:'rgba(255,106,0,0.05)',borderWidth:1.5,pointRadius:0,fill:false,tension:0.3,borderDash:[5,3]});
-  altC=new Chart(document.getElementById('altChart'),{type:'line',data:{labels:r.times,datasets:altDS},options:cOpts('Time (s)','Altitude (m)')});
+  altC=new Chart(document.getElementById('altChart'),{type:'line',data:{labels:r.times,datasets:altDS},options:cOpts(timeLabel,distanceLabel)});
   addEventDot(altC,r.times,r.btTime,'#ffaa00');
   addEventDot(altC,r.times,r.apTime,'#00ff9d');
   altC.update();
 
   if(velC)velC.destroy();
-  velC=new Chart(document.getElementById('velChart'),{type:'line',data:{labels:r.times,datasets:[{label:'Vel',data:r.vels,borderColor:'#00ff9d',backgroundColor:'rgba(0,255,157,0.06)',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},options:cOpts('Time (s)','Velocity (m/s)')});
+  velC=new Chart(document.getElementById('velChart'),{type:'line',data:{labels:r.times,datasets:[{label:'Vel',data:r.vels,borderColor:'#00ff9d',backgroundColor:'rgba(0,255,157,0.06)',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},options:cOpts(timeLabel,'Velocity (m/s)')});
 
   if(gC)gC.destroy();
-  gC=new Chart(document.getElementById('gChart'),{type:'line',data:{labels:r.times,datasets:[{label:'G',data:r.gfs,borderColor:'#ff6a00',backgroundColor:'rgba(255,106,0,0.07)',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},options:cOpts('Time (s)','G-Force (g)')});
+  gC=new Chart(document.getElementById('gChart'),{type:'line',data:{labels:r.times,datasets:[{label:'G',data:r.gfs,borderColor:'#ff6a00',backgroundColor:'rgba(255,106,0,0.07)',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},options:cOpts(timeLabel,'G-Force (g)')});
+
+  renderPropulsionCompare(r);
 
   animateTelem(r);
+}
+
+function updateStatLabels(){
+  const labels=[...document.querySelectorAll('#ps_stats .stat-label')];
+  const units=[...document.querySelectorAll('#ps_stats .stat-unit')];
+  const nuclearLabels=['Distance','Max Velocity','Max Accel','Burn Duration','Delta-V','Max Mach','Max G-Force','Prop Used'];
+  const defaultLabels=['Apogee','Max Velocity','Max Accel','Flight Time','Delta-V','Max Mach','Max G-Force','Land Offset'];
+  const nuclearUnits=['km','m/s','m/s²',document.getElementById('n_mode')&&document.getElementById('n_mode').value==='nep'?'days':'seconds','m/s','Mach','g','kg'];
+  const defaultUnits=['meters','m/s','m/s²','seconds','m/s','Mach','g','meters'];
+  const useLabels=mode==='nuclear'?nuclearLabels:defaultLabels;
+  const useUnits=mode==='nuclear'?nuclearUnits:defaultUnits;
+  labels.forEach((el,i)=>el.textContent=useLabels[i]);
+  units.forEach((el,i)=>el.textContent=useUnits[i]);
+}
+
+function renderPropulsionCompare(r){
+  if(propC)propC.destroy();
+  const comparison=buildPropulsionComparison(r);
+  propC=new Chart(document.getElementById('propChart'),{
+    type:'bar',
+    data:{labels:comparison.labels,datasets:[
+      {label:'Delta-V (km/s)',data:comparison.dv,backgroundColor:'rgba(0,200,255,0.45)',borderColor:'#00c8ff',borderWidth:1},
+      {label:'Exhaust Velocity (km/s)',data:comparison.ve,backgroundColor:'rgba(0,255,157,0.35)',borderColor:'#00ff9d',borderWidth:1},
+      {label:'T/W × 10',data:comparison.twr,backgroundColor:'rgba(255,106,0,0.35)',borderColor:'#ff6a00',borderWidth:1}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}}}},
+      scales:{x:{ticks:{color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},grid:{color:'rgba(13,42,58,0.35)'}},
+        y:{title:{display:true,text:'Scaled engineering values',color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},ticks:{color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},grid:{color:'rgba(13,42,58,0.5)'}}},
+      animation:{duration:450}}
+  });
+}
+
+function buildPropulsionComparison(r){
+  const chemical={isp:310,mr:4.2,twr:1.35};
+  const ntp={isp:900,mr:3.2,twr:0.85};
+  const nep={isp:5000,mr:1.8,twr:0.0018};
+  const anti={isp:50000,mr:1.4,twr:5.0};
+  if(mode==='model'&&r){
+    chemical.isp=Math.max(40,r.deltaV/(G0*Math.log(4.2)));
+    chemical.twr=Math.max(0.1,(parseFloat(document.getElementById('thrust').value)||20)/(((parseFloat(document.getElementById('m_dry').value)||0.5)+(parseFloat(document.getElementById('m_prop').value)||0.1))*G0));
+  }
+  if(mode==='nuclear'&&r.meta){
+    const p=r.meta;
+    if(p.nMode==='ntp'){ntp.isp=p.isp;ntp.mr=(p.mDry+p.mProp)/p.mDry;ntp.twr=p.twr;}
+    else{nep.isp=p.isp;nep.mr=(p.mDry+p.mProp)/p.mDry;nep.twr=p.twr;}
+  }
+  if(mode==='anti'){
+    const mDry=parseFloat(document.getElementById('a_dry').value)||10000;
+    const mProp=parseFloat(document.getElementById('a_prop').value)||1000;
+    anti.isp=parseFloat(document.getElementById('a_isp').value)||50000;
+    anti.mr=(mDry+mProp)/mDry;
+    anti.twr=(parseFloat(document.getElementById('a_thrust').value)||500000)/((mDry+mProp)*G0);
+  }
+  const systems=[chemical,ntp,nep,anti];
+  return{
+    labels:['Chemical','Nuclear Thermal','Nuclear Electric','Antimatter'],
+    dv:systems.map(s=>+(s.isp*G0*Math.log(s.mr)/1000).toFixed(2)),
+    ve:systems.map(s=>+(s.isp*G0/1000).toFixed(2)),
+    twr:systems.map(s=>+(s.twr*10).toFixed(3))
+  };
 }
 
 function animateTelem(r){
@@ -849,7 +1099,7 @@ function saveCompare(){
 function exportCSV(){
   if(!lastR)return;
   const r=lastR;
-  const rows=[['Time(s)','Altitude(m)','Velocity(m/s)','Accel(m/s2)','G-Force(g)','HorizDrift(m)']];
+  const rows=[['Mode',mode],['System',r.meta?r.meta.systemNote:mode],[],['Time','Altitude_or_Distance','Velocity(m/s)','Accel(m/s2)','G-Force(g)','Drift_or_RemainingDistance']];
   for(let i=0;i<r.times.length;i++) rows.push([r.times[i],r.alts[i],r.vels[i],r.accels[i],r.gfs[i],r.drifts[i]]);
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'rocketsim_flight.csv'});
@@ -867,10 +1117,11 @@ function fmt(n){
 function setStatus(t,cls){document.getElementById('t_status').innerHTML=`<span class="sdot ${cls}"></span>${t}`;}
 
 function resetSim(){
-  [altC,velC,gC].forEach(c=>{if(c)c.destroy();});
-  altC=velC=gC=null;
+  [altC,velC,gC,propC].forEach(c=>{if(c)c.destroy();});
+  altC=velC=gC=propC=null;
   if(animIntvl)clearInterval(animIntvl);
-  ['eAlt','eVel','eG'].forEach(id=>document.getElementById(id).style.display='flex');
+  updateStatLabels();
+  ['eAlt','eVel','eG','eProp'].forEach(id=>document.getElementById(id).style.display='flex');
   ['s_apogee','s_maxv','s_maxa','s_time','s_dv','s_mach','s_maxg','s_land'].forEach(id=>document.getElementById(id).textContent='—');
   setStatus('READY','');
   document.getElementById('t_alt').textContent='0 m';
