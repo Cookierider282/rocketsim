@@ -24,6 +24,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .mode-btn.active.anti{background:var(--accent2);}
 .mode-btn.active.nuclear{background:var(--green);}
 .mode-btn:hover:not(.active){color:var(--text);background:rgba(128,128,128,0.1);}
+.version-control{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:4px;padding:4px 7px;}
+.version-control label{font-size:9px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;}
+.version-control select{background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px 6px;outline:none;}
 .icon-btn{padding:6px 11px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.2s;}
 .icon-btn:hover{color:var(--text);border-color:var(--accent);}
 .app{display:flex;flex:1;position:relative;z-index:1;min-height:0;}
@@ -115,9 +118,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
       <button class="mode-btn anti" onclick="setMode('anti')">ANTIMATTER</button>
       <button class="mode-btn nuclear" onclick="setMode('nuclear')">NUCLEAR</button>
     </div>
+    <div class="version-control">
+      <label for="simVersion">Simulation Version</label>
+      <select id="simVersion" onchange="setSimulationVersion(this.value)">
+        <option value="v1">v1.0 Legacy / Antimatter Paper</option>
+        <option value="v3" selected>v3.0 Unified Integrator</option>
+      </select>
+    </div>
     <button class="icon-btn" id="panelBtn" onclick="togglePanel()">◀ PANEL</button>
     <button class="icon-btn" id="themeBtn" onclick="toggleTheme()">☀ LIGHT</button>
-    <span style="font-size:10px;color:var(--muted)">v3.0 — Neil R. Nagalkar</span>
+    <span id="versionBadge" style="font-size:10px;color:var(--muted)">v3.0 — Neil R. Nagalkar</span>
   </div>
 </header>
 
@@ -481,7 +491,7 @@ const ANTI=[
   {name:'Hybrid ACMF',isp:13500, thrust:4000000,cd:0.30,d:10},
 ];
 
-let mode='model',altC=null,velC=null,gC=null,propC=null,lastR=null,cmpR=null,animIntvl=null,panelOpen=true;
+let mode='model',simulationVersion='v3',altC=null,velC=null,gC=null,propC=null,lastR=null,cmpR=null,animIntvl=null,panelOpen=true;
 
 (function init(){
   MOTORS.forEach(m=>{
@@ -528,6 +538,15 @@ function setMode(m){
   resetSim();
   if(isAnti)updateLive();
   if(isNuclear){setNuclearMode(document.getElementById('n_mode').value);updateLiveNuclear();}
+}
+
+function setSimulationVersion(v){
+  simulationVersion=v;
+  const select=document.getElementById('simVersion');
+  if(select&&select.value!==v)select.value=v;
+  const badge=document.getElementById('versionBadge');
+  if(badge)badge.textContent=(v==='v1'?'v1.0 Legacy':'v3.0 Unified')+' — Neil R. Nagalkar';
+  resetSim();
 }
 
 function toggleTheme(){
@@ -718,7 +737,7 @@ function getThrust(stage, timeInBurn) {
   return stage.getThrust(timeInBurn, stage.burnTime);
 }
 
-function simulate(p){
+function simulate_v1(p){
   const{stages,wind,angleDeg,chuteCD,chuteArea,stageSeparationMasses}=p;
   const angleRad=angleDeg*Math.PI/180;
   
@@ -850,6 +869,14 @@ function chk(id,val,label){
 }
 
 function runSim(){
+  if(simulationVersion==='v1'){
+    runLegacySimulation();
+  }else if(simulationVersion==='v3'){
+    runUnifiedSimulation();
+  }
+}
+
+function runUnifiedSimulation(){
   let params;
   if(mode==='model'){
     const mDry=parseFloat(document.getElementById('m_dry').value);
@@ -909,7 +936,79 @@ function runSim(){
   }
   setStatus('SIMULATING...','active');
   setTimeout(()=>{
-    const r=params.type==='space'?simulateSpaceMission(params):simulate(params);
+    const r=params.type==='space'?simulate_v3(params):simulate_v1(params);
+    lastR=r;
+    renderResults(r);
+    setStatus('COMPLETE','done');
+    document.getElementById('cmpBtn').disabled=false;
+    document.getElementById('csvBtn').disabled=false;
+  },60);
+}
+
+function runLegacySimulation(){
+  if(mode==='nuclear'){
+    setStatus('V1 LEGACY: SELECT ANTIMATTER','');
+    return;
+  }
+  let params;
+  if(mode==='model'){
+    const mDry=parseFloat(document.getElementById('m_dry').value);
+    const mProp=parseFloat(document.getElementById('m_prop').value);
+    const thrust=parseFloat(document.getElementById('thrust').value);
+    const burnTime=parseFloat(document.getElementById('burn_time').value);
+    const cd=parseFloat(document.getElementById('cd').value);
+    const d=parseFloat(document.getElementById('diameter').value);
+    if(!chk('m_dry',mDry,'Dry mass')||!chk('m_prop',mProp,'Propellant')||
+       !chk('thrust',thrust,'Thrust')||!chk('burn_time',burnTime,'Burn time')||
+       !chk('cd',cd,'Cd')||!chk('diameter',d,'Diameter'))return;
+    const isp=thrust/(mProp/burnTime*G0);
+    const thrustCurveType=document.getElementById('thrustCurveType').value||'constant';
+    const stage1=new RocketStage(mDry,mProp,burnTime,isp,cd,d,thrustCurveType);
+    const stages=[stage1];
+    const stageSeparationMasses=[0];
+    const s2Prop=parseFloat(document.getElementById('s2_prop').value)||0;
+    if(s2Prop>0){
+      const s2Dry=parseFloat(document.getElementById('s2_dry').value)||0.03;
+      const s2Isp=parseFloat(document.getElementById('s2_isp').value)||70;
+      let s2Burn=parseFloat(document.getElementById('s2_burn').value)||0;
+      if(s2Burn<=0)s2Burn=s2Prop/(s2Isp*G0/(9.81*s2Isp))*2;
+      const stage2=new RocketStage(s2Dry,s2Prop,s2Burn,s2Isp,cd,d,thrustCurveType);
+      stages.push(stage2);
+      const s2Sep=parseFloat(document.getElementById('s2_sep').value)||0;
+      stageSeparationMasses.push(s2Sep);
+    }
+    const s3Prop=parseFloat(document.getElementById('s3_prop').value)||0;
+    if(s3Prop>0){
+      const s3Dry=parseFloat(document.getElementById('s3_dry').value)||0.02;
+      const s3Isp=parseFloat(document.getElementById('s3_isp').value)||70;
+      let s3Burn=parseFloat(document.getElementById('s3_burn').value)||0;
+      if(s3Burn<=0)s3Burn=s3Prop/(s3Isp*G0/(9.81*s3Isp))*2;
+      const stage3=new RocketStage(s3Dry,s3Prop,s3Burn,s3Isp,cd,d,thrustCurveType);
+      stages.push(stage3);
+      const s3Sep=parseFloat(document.getElementById('s3_sep').value)||0;
+      stageSeparationMasses.push(s3Sep);
+    }
+    const wind=parseFloat(document.getElementById('wind').value)||0;
+    const angleDeg=parseFloat(document.getElementById('launch_angle').value)||0;
+    const chuteCD=parseFloat(document.getElementById('chute_cd').value)||0;
+    const chuteD=parseFloat(document.getElementById('chute_d').value)||0.5;
+    const chuteArea=Math.PI*(chuteD/2)*(chuteD/2);
+    params={stages,wind,angleDeg,chuteCD,chuteArea,stageSeparationMasses};
+  }else{
+    const mDry=parseFloat(document.getElementById('a_dry').value);
+    const mProp=parseFloat(document.getElementById('a_prop').value);
+    const isp=parseFloat(document.getElementById('a_isp').value);
+    const thrust=parseFloat(document.getElementById('a_thrust').value);
+    const cd=parseFloat(document.getElementById('a_cd').value);
+    const d=parseFloat(document.getElementById('a_diameter').value);
+    const mDot=thrust/(isp*G0);
+    const burnTime=mProp/mDot;
+    const stage=new RocketStage(mDry,mProp,burnTime,isp,cd,d,'constant');
+    params={stages:[stage],wind:0,angleDeg:0,chuteCD:0,chuteArea:0,stageSeparationMasses:[0]};
+  }
+  setStatus('SIMULATING V1...','active');
+  setTimeout(()=>{
+    const r=simulate_v1(params);
     lastR=r;
     renderResults(r);
     setStatus('COMPLETE','done');
@@ -922,7 +1021,7 @@ function magnitude(v){
   return typeof v.magnitude==='function'?v.magnitude():Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
 }
 
-function simulateSpaceMission(p){
+function simulate_v3(p){
   const burnTime=Math.max(0,p.burnTime);
   const times=[],alts=[],vels=[],accels=[],gfs=[],drifts=[],positions=[],displacements=[],propUsedSeries=[];
   const position=new Vector3(0,0,0);
@@ -1036,8 +1135,9 @@ function updateStatLabels(){
   const defaultLabels=['Apogee','Max Velocity','Max Accel','Flight Time','Delta-V','Max Mach','Max G-Force','Land Offset'];
   const spaceUnits=['meters','m/s','m/s²','seconds','m/s','Mach','g','kg'];
   const defaultUnits=['meters','m/s','m/s²','seconds','m/s','Mach','g','meters'];
-  const useLabels=mode==='nuclear'||mode==='anti'?spaceLabels:defaultLabels;
-  const useUnits=mode==='nuclear'||mode==='anti'?spaceUnits:defaultUnits;
+  const useSpaceLabels=simulationVersion==='v3'&&(mode==='nuclear'||mode==='anti');
+  const useLabels=useSpaceLabels?spaceLabels:defaultLabels;
+  const useUnits=useSpaceLabels?spaceUnits:defaultUnits;
   labels.forEach((el,i)=>el.textContent=useLabels[i]);
   units.forEach((el,i)=>el.textContent=useUnits[i]);
 }
@@ -1124,6 +1224,14 @@ function saveCompare(){
 function exportCSV(){
   if(!lastR)return;
   const r=lastR;
+  if(simulationVersion==='v1'){
+    const rows=[['Mode',mode],['System',r.meta?r.meta.systemNote:mode],[],['Time','Altitude_or_Distance','Velocity(m/s)','Accel(m/s2)','G-Force(g)','Drift_or_RemainingDistance']];
+    for(let i=0;i<r.times.length;i++)rows.push([r.times[i],r.alts[i],r.vels[i],r.accels[i],r.gfs[i],r.drifts[i]]);
+    const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
+    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'rocketsim_flight.csv'});
+    a.click();URL.revokeObjectURL(a.href);
+    return;
+  }
   const rows=[['Mode',mode],['System',r.meta?r.meta.systemNote:mode],[],['Time(s)','Velocity(m/s)','Acceleration(m/s2)','DeltaV(m/s)','PropellantUsed(kg)','PositionX(m)','PositionY(m)','PositionZ_Altitude(m)','Displacement(m)','G-Force(g)']];
   for(let i=0;i<r.times.length;i++){
     const pos=r.positions?r.positions[i]:{x:r.drifts[i]||0,y:0,z:r.alts[i]||0};
