@@ -423,7 +423,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 </div><!-- end app -->
 
 <script>
-const G0=9.80665,RHO0=1.225,H_ATM=8500,VSOUND=343,RE=6371000,DT=0.01,MAX_T=3600,C=299792458;
+const G0=9.80665,RHO0=1.225,H_ATM=8500,VSOUND=343,RE=6371000,DT=0.01,SPACE_DT=10,MAX_T=3600,C=299792458;
+
+class Vector3 {
+  constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z;}
+  magnitude(){return Math.sqrt(this.x*this.x+this.y*this.y+this.z*this.z);}
+}
 
 // Stage data structure and constants
 class RocketStage {
@@ -661,7 +666,23 @@ function getNuclearProfile(){
   const transferDays=nMode==='nep'?Math.min(accelDays,coastDays*1.25):coastDays;
   const payloadMass=mDry*payloadFrac;
   const payloadKE=0.5*payloadMass*targetVel*targetVel;
-  return{nMode,mDry,mProp,targetVel,distanceKm,payloadFrac,isp,thrust,powerW,burnTime,flow,ve,dv,twr,accel0,transferDays,payloadKE,systemNote};
+  return{type:'space',system:'nuclear',nMode,mDry,mProp,targetVel,distanceKm,payloadFrac,isp,thrust,powerW,burnTime,flow,ve,dv,twr,accel0,transferDays,payloadKE,systemNote};
+}
+
+function getAntimatterProfile(){
+  const mDry=parseFloat(document.getElementById('a_dry').value);
+  const mProp=parseFloat(document.getElementById('a_prop').value);
+  const isp=parseFloat(document.getElementById('a_isp').value);
+  const thrust=parseFloat(document.getElementById('a_thrust').value);
+  const flow=thrust/(isp*G0);
+  const burnTime=mProp/flow;
+  const ve=isp*G0;
+  const m0=mDry+mProp;
+  const mf=mDry;
+  const dv=ve*Math.log(m0/mf);
+  const twr=thrust/(m0*G0);
+  const accel0=thrust/m0;
+  return{type:'space',system:'antimatter',mDry,mProp,isp,thrust,burnTime,flow,ve,dv,twr,accel0,systemNote:'Antimatter propulsion'};
 }
 
 function updateLiveNuclear(){
@@ -884,20 +905,11 @@ function runSim(){
   } else if(mode==='nuclear'){
     params=getNuclearProfile();
   } else {
-    const mDry=parseFloat(document.getElementById('a_dry').value);
-    const mProp=parseFloat(document.getElementById('a_prop').value);
-    const isp=parseFloat(document.getElementById('a_isp').value);
-    const thrust=parseFloat(document.getElementById('a_thrust').value);
-    const cd=parseFloat(document.getElementById('a_cd').value);
-    const d=parseFloat(document.getElementById('a_diameter').value);
-    const mDot=thrust/(isp*G0);
-    const burnTime=mProp/mDot;
-    const stage=new RocketStage(mDry,mProp,burnTime,isp,cd,d,'constant');
-    params={stages:[stage],wind:0,angleDeg:0,chuteCD:0,chuteArea:0,stageSeparationMasses:[0]};
+    params=getAntimatterProfile();
   }
   setStatus('SIMULATING...','active');
   setTimeout(()=>{
-    const r=mode==='nuclear'?simulateNuclearMission(params):simulate(params);
+    const r=params.type==='space'?simulateSpaceMission(params):simulate(params);
     lastR=r;
     renderResults(r);
     setStatus('COMPLETE','done');
@@ -906,39 +918,52 @@ function runSim(){
   },60);
 }
 
-function simulateNuclearMission(p){
-  const samples=260;
-  const burnTime=Math.max(1,p.burnTime);
-  const times=[],alts=[],vels=[],accels=[],gfs=[],drifts=[];
-  let maxVel=0,maxAccel=0,maxG=0,distance=0,vel=0,propUsed=0;
-  const flow=p.flow;
-  for(let i=0;i<=samples;i++){
-    const t=burnTime*i/samples;
-    const used=Math.min(p.mProp,flow*t);
-    const mass=Math.max(p.mDry,p.mDry+p.mProp-used);
-    const accel=p.thrust/mass;
-    const cappedVel=Math.min(p.dv,accel*t);
-    const dt=i===0?0:burnTime/samples;
-    vel=cappedVel;
-    distance+=vel*dt;
-    propUsed=used;
-    maxVel=Math.max(maxVel,vel);
-    maxAccel=Math.max(maxAccel,accel);
-    maxG=Math.max(maxG,accel/G0);
-    const dayScale=t>86400?+(t/86400).toFixed(2):+t.toFixed(2);
-    times.push(dayScale);
-    alts.push(+(distance/1000).toFixed(2));
-    vels.push(+vel.toFixed(2));
+function magnitude(v){
+  return typeof v.magnitude==='function'?v.magnitude():Math.sqrt(v.x*v.x+v.y*v.y+v.z*v.z);
+}
+
+function simulateSpaceMission(p){
+  const burnTime=Math.max(0,p.burnTime);
+  const times=[],alts=[],vels=[],accels=[],gfs=[],drifts=[],positions=[],displacements=[],propUsedSeries=[];
+  const position=new Vector3(0,0,0);
+  const velocity=new Vector3(0,0,0);
+  let t=0,maxVel=0,maxAccel=0,maxG=0,propUsed=0;
+  const totalSteps=Math.max(1,Math.ceil(burnTime/SPACE_DT));
+  const logEvery=Math.max(1,Math.ceil(totalSteps/600));
+  let stepIndex=0;
+  const logState=(accel=0)=>{
+    const speed=magnitude(velocity);
+    const displacement=magnitude(position);
+    times.push(+t.toFixed(2));
+    alts.push(+position.z.toFixed(2));
+    vels.push(+speed.toFixed(2));
     accels.push(+accel.toFixed(5));
     gfs.push(+(accel/G0).toFixed(5));
-    drifts.push(+((p.distanceKm*1000-distance)/1000).toFixed(2));
+    drifts.push(+position.x.toFixed(2));
+    positions.push({x:+position.x.toFixed(2),y:+position.y.toFixed(2),z:+position.z.toFixed(2)});
+    displacements.push(+displacement.toFixed(2));
+    propUsedSeries.push(+propUsed.toFixed(2));
+  };
+  logState();
+  while(t<burnTime){
+    const dt=Math.min(SPACE_DT,burnTime-t);
+    const mass=Math.max(p.mDry,p.mDry+p.mProp-propUsed);
+    const accel=p.thrust/mass;
+    velocity.z=Math.min(p.dv,velocity.z+accel*dt);
+    position.z+=velocity.z*dt;
+    propUsed=Math.min(p.mProp,propUsed+p.flow*dt);
+    t=+(t+dt).toFixed(6);
+    stepIndex++;
+    maxVel=Math.max(maxVel,magnitude(velocity));
+    maxAccel=Math.max(maxAccel,accel);
+    maxG=Math.max(maxG,accel/G0);
+    if(stepIndex%logEvery===0||t>=burnTime)logState(accel);
   }
-  const burnLabel=p.burnTime>86400?p.burnTime/86400:p.burnTime;
-  return{times,alts,vels,accels,gfs,drifts,
-    apogee:+(distance/1000).toFixed(1),maxVel:+maxVel.toFixed(1),maxAccel:+maxAccel.toFixed(4),
-    maxG:+maxG.toFixed(4),flightTime:+burnLabel.toFixed(1),deltaV:+p.dv.toFixed(1),
+  return{times,alts,vels,accels,gfs,drifts,positions,displacements,propUsedSeries,
+    apogee:+position.z.toFixed(1),maxVel:+maxVel.toFixed(1),maxAccel:+maxAccel.toFixed(4),
+    maxG:+maxG.toFixed(4),flightTime:+burnTime.toFixed(1),deltaV:+p.dv.toFixed(1),
     maxMach:+(maxVel/VSOUND).toFixed(3),landOffset:+propUsed.toFixed(1),
-    btTime:p.burnTime,apTime:null,meta:p};
+    btTime:burnTime,apTime:null,meta:p};
 }
 
 function cOpts(xl,yl){
@@ -982,8 +1007,8 @@ function renderResults(r){
   document.querySelectorAll('.stat-value').forEach(el=>el.style.color=color);
 
   ['eAlt','eVel','eG','eProp'].forEach(id=>document.getElementById(id).style.display='none');
-  const timeLabel=mode==='nuclear'&&r.meta&&r.meta.burnTime>86400?'Time (days)':'Time (s)';
-  const distanceLabel=mode==='nuclear'?'Distance (km)':'Altitude (m)';
+  const timeLabel='Time (s)';
+  const distanceLabel='Altitude (m)';
 
   if(altC)altC.destroy();
   const altDS=[{label:'Alt',data:r.alts,borderColor:color,backgroundColor:fade,borderWidth:2,pointRadius:0,fill:true,tension:0.3}];
@@ -1007,12 +1032,12 @@ function renderResults(r){
 function updateStatLabels(){
   const labels=[...document.querySelectorAll('#ps_stats .stat-label')];
   const units=[...document.querySelectorAll('#ps_stats .stat-unit')];
-  const nuclearLabels=['Distance','Max Velocity','Max Accel','Burn Duration','Delta-V','Max Mach','Max G-Force','Prop Used'];
+  const spaceLabels=['Altitude','Max Velocity','Max Accel','Burn Duration','Delta-V','Max Mach','Max G-Force','Prop Used'];
   const defaultLabels=['Apogee','Max Velocity','Max Accel','Flight Time','Delta-V','Max Mach','Max G-Force','Land Offset'];
-  const nuclearUnits=['km','m/s','m/s²',document.getElementById('n_mode')&&document.getElementById('n_mode').value==='nep'?'days':'seconds','m/s','Mach','g','kg'];
+  const spaceUnits=['meters','m/s','m/s²','seconds','m/s','Mach','g','kg'];
   const defaultUnits=['meters','m/s','m/s²','seconds','m/s','Mach','g','meters'];
-  const useLabels=mode==='nuclear'?nuclearLabels:defaultLabels;
-  const useUnits=mode==='nuclear'?nuclearUnits:defaultUnits;
+  const useLabels=mode==='nuclear'||mode==='anti'?spaceLabels:defaultLabels;
+  const useUnits=mode==='nuclear'||mode==='anti'?spaceUnits:defaultUnits;
   labels.forEach((el,i)=>el.textContent=useLabels[i]);
   units.forEach((el,i)=>el.textContent=useUnits[i]);
 }
@@ -1099,8 +1124,13 @@ function saveCompare(){
 function exportCSV(){
   if(!lastR)return;
   const r=lastR;
-  const rows=[['Mode',mode],['System',r.meta?r.meta.systemNote:mode],[],['Time','Altitude_or_Distance','Velocity(m/s)','Accel(m/s2)','G-Force(g)','Drift_or_RemainingDistance']];
-  for(let i=0;i<r.times.length;i++) rows.push([r.times[i],r.alts[i],r.vels[i],r.accels[i],r.gfs[i],r.drifts[i]]);
+  const rows=[['Mode',mode],['System',r.meta?r.meta.systemNote:mode],[],['Time(s)','Velocity(m/s)','Acceleration(m/s2)','DeltaV(m/s)','PropellantUsed(kg)','PositionX(m)','PositionY(m)','PositionZ_Altitude(m)','Displacement(m)','G-Force(g)']];
+  for(let i=0;i<r.times.length;i++){
+    const pos=r.positions?r.positions[i]:{x:r.drifts[i]||0,y:0,z:r.alts[i]||0};
+    const disp=r.displacements?r.displacements[i]:Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z);
+    const propUsed=r.propUsedSeries?r.propUsedSeries[i]:'';
+    rows.push([r.times[i],r.vels[i],r.accels[i],r.deltaV,propUsed,pos.x,pos.y,pos.z,disp,r.gfs[i]]);
+  }
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'rocketsim_flight.csv'});
   a.click();URL.revokeObjectURL(a.href);
