@@ -237,7 +237,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
       <div class="input-grid">
         <div class="input-row"><label>Dry Mass <span class="tip" data-t="Spacecraft mass without propellant.">?</span></label><input type="number" id="a_dry" value="10000" min="1" step="1" oninput="updateLive()"><div class="input-unit">kg</div></div>
         <div class="input-row"><label>Propellant Mass <span class="tip" data-t="Combined matter + antimatter propellant.">?</span></label><input type="number" id="a_prop" value="1000" min="0.001" step="1" oninput="updateLive()"><div class="input-unit">kg</div></div>
-        <div class="input-row"><label>Specific Impulse (Isp) <span class="tip" data-t="Fuel efficiency. Higher = faster exhaust. Beamed core ~100,000s; solid core ~25,000s.">?</span></label><input type="number" id="a_isp" value="50000" min="100" step="100" oninput="updateLive()"><div class="input-unit">seconds</div></div>
+        <div class="input-row"><label>Specific Impulse (Isp) <span class="tip" data-t="Fuel efficiency. Higher = faster exhaust. Beamed core ideal ceiling ~10,000,000s; solid core ideal ceiling ~1,000s.">?</span></label><input type="number" id="a_isp" value="50000" min="100" step="100" oninput="updateLive()"><div class="input-unit">seconds</div></div>
         <div class="input-row"><label>Thrust <span class="tip" data-t="Engine force in Newtons.">?</span></label><input type="number" id="a_thrust" value="500000" min="1" step="1000"><div class="input-unit">Newtons</div></div>
         <div class="input-row"><label>Drag Coefficient <span class="tip" data-t="Aerodynamic drag of spacecraft.">?</span></label><input type="number" id="a_cd" value="0.3" min="0.05" step="0.01"></div>
         <div class="input-row"><label>Body Diameter <span class="tip" data-t="Cross-section diameter for drag calculation.">?</span></label><input type="number" id="a_diameter" value="5" min="0.1" step="0.1"><div class="input-unit">meters</div></div>
@@ -250,6 +250,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
         <div class="live-row"><span>Exhaust Velocity (Ve)</span><span class="live-val" id="l_ve">—</span></div>
         <div class="live-row"><span>Ve as % speed of light</span><span class="live-val" id="l_c">—</span></div>
         <div class="live-row"><span>Mass Ratio</span><span class="live-val" id="l_mr">—</span></div>
+        <div class="live-row"><span>Relativistic Validity <span class="tip" data-t="Flags when Ve exceeds 0.1c, where the classical Tsiolkovsky rocket equation used here is no longer physically valid.">?</span></span><span class="live-val" id="l_rel">—</span></div>
       </div>
     </div>
   </div>
@@ -261,9 +262,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
       <div class="input-grid">
         <div class="input-row"><label>Engine Type <span class="tip" data-t="Three antimatter engine architectures with different performance profiles.">?</span></label>
           <select id="a_engine_type" oninput="updateLive()">
-            <option value="beamed">Beamed Core (100k+ Isp)</option>
-            <option value="solid">Solid Core (25k Isp)</option>
-            <option value="catalyzed">Catalyzed Fusion (13.5k Isp)</option>
+            <option value="beamed">Beamed Core (10M ideal Isp)</option>
+            <option value="solid">Solid Core (1k ideal Isp)</option>
+            <option value="catalyzed">Catalyzed Fusion (13.5k ideal Isp)</option>
           </select>
         </div>
         <div class="input-row"><label>Annihilation Efficiency <span class="tip" data-t="Fraction of antimatter successfully annihilated.">?</span></label>
@@ -301,6 +302,19 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
         <div class="live-row"><span>Kinetic Energy (payload)</span><span class="live-val" id="l_ke">—</span></div>
         <div class="live-row"><span>Power Output</span><span class="live-val" id="l_power">—</span></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ANTIMATTER EFFICIENCY SWEEP -->
+  <div class="panel-section anti-sec" id="ps_anti_sweep" style="display:none">
+    <div class="panel-title anti" onclick="toggleSec('ps_anti_sweep')">Efficiency Sweep (η) <span class="chevron">▾</span></div>
+    <div class="section-body" id="pb_anti_sweep">
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">
+        Sweeps annihilation/conversion efficiency η across each architecture's operating range (20 steps each) with effectiveIsp = maxIsp × η. Dry mass, propellant mass, and every other input stay fixed from the panel above — only η changes. Reveals Δv crossover points between architectures.
+      </div>
+      <button class="action-btn" id="sweepBtn" onclick="runAndRenderAntimatterSweep()" style="margin-bottom:8px">⚡ RUN η SWEEP</button>
+      <button class="action-btn csv-btn" id="sweepCsvBtn" onclick="downloadAntimatterEfficiencySweepCSV()" disabled>↓ EXPORT SWEEP CSV</button>
+      <div class="chart-wrap" id="sw" style="margin-top:10px"><canvas id="sweepChart"></canvas><div class="empty" id="eSweep"><div style="font-size:11px;color:var(--muted)">Run the η sweep to see Δv vs η per architecture</div></div></div>
     </div>
   </div>
 
@@ -485,13 +499,40 @@ const MOTORS=[
   {name:'F52-8',mDry:0.130,mProp:0.100, thrust:52.0,burn:1.5,  cd:0.65,d:0.029},
 ];
 
+// Ideal (eta=1.0 ceiling) Isp per antimatter architecture — the single source of
+// truth shared by the single-run chip presets (ANTI) and the efficiency sweep
+// (ANTIMATTER_SWEEP_ARCHS) below, so both paths are guaranteed to use identical
+// ideal Isp values.
+const ANTIMATTER_IDEAL_ISP={
+  'Beamed Core':10000000,
+  'Solid Core':1000,
+  'ACMF':13500,
+};
+// Reference/display annihilation+conversion efficiency (ηe) per architecture.
+// Not used in any Δv or Isp calculation — stored for reference/future paper generation.
+const ANTIMATTER_EFFICIENCY_REF={
+  'Beamed Core':0.60,
+  'Solid Core':0.85,
+  'ACMF':0.15,
+};
+
 const ANTI=[
-  {name:'Beamed Core',isp:100000,thrust:500000, cd:0.25,d:8},
-  {name:'Solid Core', isp:25000, thrust:1500000,cd:0.35,d:6},
-  {name:'Hybrid ACMF',isp:13500, thrust:4000000,cd:0.30,d:10},
+  {name:'Beamed Core',isp:ANTIMATTER_IDEAL_ISP['Beamed Core'],thrust:500000, cd:0.25,d:8},
+  {name:'Solid Core', isp:ANTIMATTER_IDEAL_ISP['Solid Core'], thrust:1500000,cd:0.35,d:6},
+  {name:'Hybrid ACMF',isp:ANTIMATTER_IDEAL_ISP['ACMF'],       thrust:4000000,cd:0.30,d:10},
 ];
 
-let mode='model',simulationVersion='v3',altC=null,velC=null,gC=null,propC=null,lastR=null,cmpR=null,animIntvl=null,panelOpen=true;
+// Antimatter efficiency-sweep architecture definitions. maxIsp is the theoretical
+// ceiling (effectiveIsp at eta=1.0) for each architecture; thrust/cd/d mirror the
+// ANTI presets above and are held fixed across a given architecture's sweep.
+const ANTIMATTER_SWEEP_ARCHS=[
+  {name:'Beamed Core',maxIsp:ANTIMATTER_IDEAL_ISP['Beamed Core'],etaMin:0.25,etaMax:0.60,thrust:500000, cd:0.25,d:8},
+  {name:'Solid Core', maxIsp:ANTIMATTER_IDEAL_ISP['Solid Core'], etaMin:0.10,etaMax:0.40,thrust:1500000,cd:0.35,d:6},
+  {name:'ACMF',       maxIsp:ANTIMATTER_IDEAL_ISP['ACMF'],       etaMin:0.05,etaMax:0.30,thrust:4000000,cd:0.30,d:10},
+];
+const ANTIMATTER_SWEEP_STEPS=20;
+
+let mode='model',simulationVersion='v3',altC=null,velC=null,gC=null,propC=null,sweepC=null,lastR=null,cmpR=null,lastSweep=null,animIntvl=null,panelOpen=true;
 
 (function init(){
   MOTORS.forEach(m=>{
@@ -590,6 +631,10 @@ function updateLive(){
   document.getElementById('l_ve').textContent=fmt(ve)+' m/s';
   document.getElementById('l_c').textContent=(ve/C*100).toFixed(4)+'%';
   document.getElementById('l_mr').textContent=mr.toFixed(2)+'×';
+  const relativisticWarning=ve>0.1*C;
+  const relEl=document.getElementById('l_rel');
+  relEl.textContent=relativisticWarning?'⚠ RELATIVISTIC (Ve>0.1c)':'✓ Classical (Ve≤0.1c)';
+  relEl.style.color=relativisticWarning?'var(--danger)':'var(--green)';
   updateLiveAntimatter();
   updateLiveNuclear();
 }
@@ -701,7 +746,47 @@ function getAntimatterProfile(){
   const dv=ve*Math.log(m0/mf);
   const twr=thrust/(m0*G0);
   const accel0=thrust/m0;
-  return{type:'space',system:'antimatter',mDry,mProp,isp,thrust,burnTime,flow,ve,dv,twr,accel0,systemNote:'Antimatter propulsion'};
+  const relativisticWarning=ve>0.1*C;
+  return{type:'space',system:'antimatter',mDry,mProp,isp,thrust,burnTime,flow,ve,dv,twr,accel0,relativisticWarning,systemNote:'Antimatter propulsion'};
+}
+
+// PURE per-run antimatter physics function used by the efficiency sweep (see
+// runAntimatterEfficiencySweep below). Unlike getAntimatterProfile(), this never
+// touches the DOM: every input arrives as a parameter and every output is
+// returned, so calling it repeatedly with a different effectiveIsp has no side
+// effects and no stale-read risk. Δv uses the Tsiolkovsky rocket equation with
+// effectiveIsp = maxIsp × η, using the app-wide G0 (9.80665 m/s²).
+function simulateAntimatterCore(params){
+  const {mDry,mProp,effectiveIsp,thrust=0,cd=0,diameter=0,burnDuration=null}=params;
+  const g0=G0;
+  const ve=effectiveIsp*g0;
+  const m0=mDry+mProp;
+  const mf=mDry;
+  const deltaV=ve*Math.log(m0/mf);
+  const twr=thrust>0?thrust/(m0*g0):0;
+  const flow=thrust>0?thrust/ve:0;
+  const relativisticWarning=ve>0.1*C;
+  return{mDry,mProp,effectiveIsp,thrust,cd,diameter,burnDuration,ve,m0,mf,deltaV,twr,flow,relativisticWarning};
+}
+
+// Sweeps η linearly across each architecture's operating range, holding every
+// non-Isp parameter (dry mass, propellant mass, thrust, cd, diameter, burn
+// duration) fixed, and calls the pure simulateAntimatterCore() function for
+// every point — never the UI-driven runUnifiedSimulation()/runSim() path.
+function runAntimatterEfficiencySweep(){
+  const mDry=parseFloat(document.getElementById('a_dry').value)||10000;
+  const mProp=parseFloat(document.getElementById('a_prop').value)||1000;
+  const burnDuration=parseFloat(document.getElementById('a_burn').value)||120;
+  const rows=[];
+  ANTIMATTER_SWEEP_ARCHS.forEach(arch=>{
+    for(let i=0;i<ANTIMATTER_SWEEP_STEPS;i++){
+      const eta=arch.etaMin+(arch.etaMax-arch.etaMin)*(i/(ANTIMATTER_SWEEP_STEPS-1));
+      const effectiveIsp=arch.maxIsp*eta;
+      const result=simulateAntimatterCore({mDry,mProp,effectiveIsp,thrust:arch.thrust,cd:arch.cd,diameter:arch.d,burnDuration});
+      rows.push({architecture:arch.name,eta,effectiveIsp,deltaV:result.deltaV,ve:result.ve,relativisticWarning:result.relativisticWarning});
+    }
+  });
+  return rows;
 }
 
 function updateLiveNuclear(){
@@ -1241,6 +1326,45 @@ function exportCSV(){
   }
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'rocketsim_flight.csv'});
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+// Separate trigger for the antimatter efficiency sweep: runs the sweep (via the
+// pure simulateAntimatterCore function, see above), plots Δv vs η per
+// architecture, and unlocks CSV export. Fully additive — does not touch the
+// existing single-run launch path (runSim/runUnifiedSimulation).
+const ANTIMATTER_SWEEP_COLORS={'Beamed Core':'#00c8ff','Solid Core':'#00ff9d','ACMF':'#ff6a00'};
+
+function runAndRenderAntimatterSweep(){
+  lastSweep=runAntimatterEfficiencySweep();
+  document.getElementById('eSweep').style.display='none';
+  document.getElementById('sweepCsvBtn').disabled=false;
+  if(sweepC)sweepC.destroy();
+  const datasets=ANTIMATTER_SWEEP_ARCHS.map(arch=>{
+    const pts=lastSweep.filter(r=>r.architecture===arch.name).map(r=>({x:+r.eta.toFixed(4),y:+r.deltaV.toFixed(1)}));
+    const color=ANTIMATTER_SWEEP_COLORS[arch.name];
+    return{label:arch.name,data:pts,borderColor:color,backgroundColor:color+'22',borderWidth:2,pointRadius:2,pointBackgroundColor:color,fill:false,tension:0.2};
+  });
+  sweepC=new Chart(document.getElementById('sweepChart'),{
+    type:'line',
+    data:{datasets},
+    options:{responsive:true,maintainAspectRatio:false,parsing:false,
+      plugins:{legend:{display:true,labels:{color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}}}},
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Efficiency η',color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},
+           ticks:{color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},grid:{color:'rgba(13,42,58,0.5)'}},
+        y:{title:{display:true,text:'Δv (m/s)',color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},
+           ticks:{color:'#4a7a8a',font:{family:'Share Tech Mono',size:9}},grid:{color:'rgba(13,42,58,0.5)'}}
+      },animation:{duration:450}}
+  });
+}
+
+function downloadAntimatterEfficiencySweepCSV(){
+  const rows=lastSweep||runAntimatterEfficiencySweep();
+  const lines=[['architecture','eta','effectiveIsp','deltaV','ve','relativisticWarning'].join(',')];
+  rows.forEach(r=>lines.push([r.architecture,r.eta.toFixed(6),r.effectiveIsp.toFixed(3),r.deltaV.toFixed(3),r.ve.toFixed(3),r.relativisticWarning].join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'antimatter_efficiency_sweep.csv'});
   a.click();URL.revokeObjectURL(a.href);
 }
 
